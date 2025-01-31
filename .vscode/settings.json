@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "freertos.h": "c",
+        "sdkconfig.h": "c",
+        "uart.h": "c",
+        "ets_sys.h": "c"
+    }
+}
