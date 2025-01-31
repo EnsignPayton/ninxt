@@ -54,8 +54,7 @@ uint8_t s_jb_state_data[JB_STATE_SIZE];
 
 uint8_t _to_uart(uint8_t value)
 {
-    switch (value & 0b11)
-    {
+    switch (value & 0b11) {
         default:
         case 0b00:
             return JB00;
@@ -142,10 +141,10 @@ void jb_update_state(void)
 
 void jb_send_info(void)
 {
-    uart_write_bytes(JB_UART_PORT_NUM, (const char *) s_jb_info, JB_INFO_SIZE);
+    uart_write_bytes(JB_UART_PORT_NUM, (const char*) s_jb_info, JB_INFO_SIZE);
 }
 
 void jb_send_state(void)
 {
-    uart_write_bytes(JB_UART_PORT_NUM, (const char *) s_jb_state_data, JB_STATE_SIZE);
+    uart_write_bytes(JB_UART_PORT_NUM, (const char*) s_jb_state_data, JB_STATE_SIZE);
 }
