@@ -44,15 +44,15 @@ typedef struct {
     uint16_t btn_flags;
     int8_t stick_x;
     int8_t stick_y;
-} jb_con_state_t;
+} jb_state_t;
 
 // Source of truth for current controller state
-jb_con_state_t s_jb_con_state;
+jb_state_t s_jb_state;
 
 #define JB_STATE_SIZE 17
-uint8_t s_jb_con_state_data[JB_STATE_SIZE];
+uint8_t s_jb_state_data[JB_STATE_SIZE];
 
-uint8_t _jb_pair_to_uart(uint8_t value)
+uint8_t _to_uart(uint8_t value)
 {
     switch (value & 0b11)
     {
@@ -86,60 +86,58 @@ void jb_uart_setup(void)
 
 void jb_btn_press(jb_btn_pos_t pos)
 {
-    s_jb_con_state.btn_flags |= (1 << pos);
+    s_jb_state.btn_flags |= (1 << pos);
 }
 
 void jb_btn_release(jb_btn_pos_t pos)
 {
-    s_jb_con_state.btn_flags &= ~(1 << pos);
+    s_jb_state.btn_flags &= ~(1 << pos);
 }
 
 void jb_set_x(int8_t val)
 {
-    s_jb_con_state.stick_x = val;
+    s_jb_state.stick_x = val;
 }
 
 void jb_set_y(int8_t val)
 {
-    s_jb_con_state.stick_y = val;
+    s_jb_state.stick_y = val;
 }
 
-// Call me after state updates
 void jb_update_state(void)
 {
-    // TODO: Probably take a mutex on s_jb_con_state_data
-    s_jb_con_state_data[0] = _jb_pair_to_uart(
-        ((s_jb_con_state.btn_flags >> (JB_POS_A - 1)) & 0b10) |
-        ((s_jb_con_state.btn_flags >> JB_POS_B) & 0b01));
-    s_jb_con_state_data[1] = _jb_pair_to_uart(
-        ((s_jb_con_state.btn_flags >> (JB_POS_Z - 1)) & 0b10) |
-        ((s_jb_con_state.btn_flags >> JB_POS_START) & 0b01));
-    s_jb_con_state_data[2] = _jb_pair_to_uart(
-        ((s_jb_con_state.btn_flags >> (JB_POS_DU - 1)) & 0b10) |
-        ((s_jb_con_state.btn_flags >> JB_POS_DD) & 0b01));
-    s_jb_con_state_data[3] = _jb_pair_to_uart(
-        ((s_jb_con_state.btn_flags >> (JB_POS_DL - 1)) & 0b10) |
-        ((s_jb_con_state.btn_flags >> JB_POS_DR) & 0b01));
-    s_jb_con_state_data[4] = _jb_pair_to_uart(
-        ((s_jb_con_state.btn_flags >> (JB_POS_DU - 1)) & 0b10) |
-        ((s_jb_con_state.btn_flags >> JB_POS_DD) & 0b01));
-    s_jb_con_state_data[5] = _jb_pair_to_uart(
-        ((s_jb_con_state.btn_flags >> (JB_POS_RESET - 1)) & 0b10));
-    s_jb_con_state_data[6] = _jb_pair_to_uart(
-        ((s_jb_con_state.btn_flags >> (JB_POS_CU - 1)) & 0b10) |
-        ((s_jb_con_state.btn_flags >> JB_POS_CD) & 0b01));
-    s_jb_con_state_data[7] = _jb_pair_to_uart(
-        ((s_jb_con_state.btn_flags >> (JB_POS_CL - 1)) & 0b10) |
-        ((s_jb_con_state.btn_flags >> JB_POS_CR) & 0b01));
-    s_jb_con_state_data[8] = _jb_pair_to_uart(s_jb_con_state.stick_x >> 6);
-    s_jb_con_state_data[9] = _jb_pair_to_uart(s_jb_con_state.stick_x >> 4);
-    s_jb_con_state_data[10] = _jb_pair_to_uart(s_jb_con_state.stick_x >> 2);
-    s_jb_con_state_data[11] = _jb_pair_to_uart(s_jb_con_state.stick_x >> 0);
-    s_jb_con_state_data[12] = _jb_pair_to_uart(s_jb_con_state.stick_y >> 6);
-    s_jb_con_state_data[13] = _jb_pair_to_uart(s_jb_con_state.stick_y >> 4);
-    s_jb_con_state_data[14] = _jb_pair_to_uart(s_jb_con_state.stick_y >> 2);
-    s_jb_con_state_data[15] = _jb_pair_to_uart(s_jb_con_state.stick_y >> 0);
-    s_jb_con_state_data[16] = JBSTOP;
+    s_jb_state_data[0] = _to_uart(
+        ((s_jb_state.btn_flags >> (JB_POS_A - 1)) & 0b10) |
+        ((s_jb_state.btn_flags >> JB_POS_B) & 0b01));
+    s_jb_state_data[1] = _to_uart(
+        ((s_jb_state.btn_flags >> (JB_POS_Z - 1)) & 0b10) |
+        ((s_jb_state.btn_flags >> JB_POS_START) & 0b01));
+    s_jb_state_data[2] = _to_uart(
+        ((s_jb_state.btn_flags >> (JB_POS_DU - 1)) & 0b10) |
+        ((s_jb_state.btn_flags >> JB_POS_DD) & 0b01));
+    s_jb_state_data[3] = _to_uart(
+        ((s_jb_state.btn_flags >> (JB_POS_DL - 1)) & 0b10) |
+        ((s_jb_state.btn_flags >> JB_POS_DR) & 0b01));
+    s_jb_state_data[4] = _to_uart(
+        ((s_jb_state.btn_flags >> (JB_POS_DU - 1)) & 0b10) |
+        ((s_jb_state.btn_flags >> JB_POS_DD) & 0b01));
+    s_jb_state_data[5] = _to_uart(
+        ((s_jb_state.btn_flags >> (JB_POS_RESET - 1)) & 0b10));
+    s_jb_state_data[6] = _to_uart(
+        ((s_jb_state.btn_flags >> (JB_POS_CU - 1)) & 0b10) |
+        ((s_jb_state.btn_flags >> JB_POS_CD) & 0b01));
+    s_jb_state_data[7] = _to_uart(
+        ((s_jb_state.btn_flags >> (JB_POS_CL - 1)) & 0b10) |
+        ((s_jb_state.btn_flags >> JB_POS_CR) & 0b01));
+    s_jb_state_data[8] = _to_uart(s_jb_state.stick_x >> 6);
+    s_jb_state_data[9] = _to_uart(s_jb_state.stick_x >> 4);
+    s_jb_state_data[10] = _to_uart(s_jb_state.stick_x >> 2);
+    s_jb_state_data[11] = _to_uart(s_jb_state.stick_x >> 0);
+    s_jb_state_data[12] = _to_uart(s_jb_state.stick_y >> 6);
+    s_jb_state_data[13] = _to_uart(s_jb_state.stick_y >> 4);
+    s_jb_state_data[14] = _to_uart(s_jb_state.stick_y >> 2);
+    s_jb_state_data[15] = _to_uart(s_jb_state.stick_y >> 0);
+    s_jb_state_data[16] = JBSTOP;
 }
 
 void jb_send_info(void)
@@ -149,6 +147,5 @@ void jb_send_info(void)
 
 void jb_send_state(void)
 {
-    // TODO: Probably take a mutex on s_jb_con_state_data
-    uart_write_bytes(JB_UART_PORT_NUM, (const char *) s_jb_con_state_data, JB_STATE_SIZE);
+    uart_write_bytes(JB_UART_PORT_NUM, (const char *) s_jb_state_data, JB_STATE_SIZE);
 }
