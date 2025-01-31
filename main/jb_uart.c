@@ -52,7 +52,7 @@ jb_state_t s_jb_state;
 #define JB_STATE_SIZE 17
 uint8_t s_jb_state_data[JB_STATE_SIZE];
 
-uint8_t _to_uart(uint8_t value)
+uint8_t to_uart(uint8_t value)
 {
     switch (value & 0b11) {
         default:
@@ -67,7 +67,7 @@ uint8_t _to_uart(uint8_t value)
     }
 }
 
-void jb_uart_setup(void)
+void jb_uart_init(void)
 {
     uart_config_t uart_config = {
         .baud_rate = JB_UART_BAUD_RATE,
@@ -105,37 +105,37 @@ void jb_set_y(int8_t val)
 
 void jb_update_state(void)
 {
-    s_jb_state_data[0] = _to_uart(
+    s_jb_state_data[0] = to_uart(
         ((s_jb_state.btn_flags >> (JB_POS_A - 1)) & 0b10) |
         ((s_jb_state.btn_flags >> JB_POS_B) & 0b01));
-    s_jb_state_data[1] = _to_uart(
+    s_jb_state_data[1] = to_uart(
         ((s_jb_state.btn_flags >> (JB_POS_Z - 1)) & 0b10) |
         ((s_jb_state.btn_flags >> JB_POS_START) & 0b01));
-    s_jb_state_data[2] = _to_uart(
+    s_jb_state_data[2] = to_uart(
         ((s_jb_state.btn_flags >> (JB_POS_DU - 1)) & 0b10) |
         ((s_jb_state.btn_flags >> JB_POS_DD) & 0b01));
-    s_jb_state_data[3] = _to_uart(
+    s_jb_state_data[3] = to_uart(
         ((s_jb_state.btn_flags >> (JB_POS_DL - 1)) & 0b10) |
         ((s_jb_state.btn_flags >> JB_POS_DR) & 0b01));
-    s_jb_state_data[4] = _to_uart(
+    s_jb_state_data[4] = to_uart(
         ((s_jb_state.btn_flags >> (JB_POS_DU - 1)) & 0b10) |
         ((s_jb_state.btn_flags >> JB_POS_DD) & 0b01));
-    s_jb_state_data[5] = _to_uart(
+    s_jb_state_data[5] = to_uart(
         ((s_jb_state.btn_flags >> (JB_POS_RESET - 1)) & 0b10));
-    s_jb_state_data[6] = _to_uart(
+    s_jb_state_data[6] = to_uart(
         ((s_jb_state.btn_flags >> (JB_POS_CU - 1)) & 0b10) |
         ((s_jb_state.btn_flags >> JB_POS_CD) & 0b01));
-    s_jb_state_data[7] = _to_uart(
+    s_jb_state_data[7] = to_uart(
         ((s_jb_state.btn_flags >> (JB_POS_CL - 1)) & 0b10) |
         ((s_jb_state.btn_flags >> JB_POS_CR) & 0b01));
-    s_jb_state_data[8] = _to_uart(s_jb_state.stick_x >> 6);
-    s_jb_state_data[9] = _to_uart(s_jb_state.stick_x >> 4);
-    s_jb_state_data[10] = _to_uart(s_jb_state.stick_x >> 2);
-    s_jb_state_data[11] = _to_uart(s_jb_state.stick_x >> 0);
-    s_jb_state_data[12] = _to_uart(s_jb_state.stick_y >> 6);
-    s_jb_state_data[13] = _to_uart(s_jb_state.stick_y >> 4);
-    s_jb_state_data[14] = _to_uart(s_jb_state.stick_y >> 2);
-    s_jb_state_data[15] = _to_uart(s_jb_state.stick_y >> 0);
+    s_jb_state_data[8] = to_uart(s_jb_state.stick_x >> 6);
+    s_jb_state_data[9] = to_uart(s_jb_state.stick_x >> 4);
+    s_jb_state_data[10] = to_uart(s_jb_state.stick_x >> 2);
+    s_jb_state_data[11] = to_uart(s_jb_state.stick_x >> 0);
+    s_jb_state_data[12] = to_uart(s_jb_state.stick_y >> 6);
+    s_jb_state_data[13] = to_uart(s_jb_state.stick_y >> 4);
+    s_jb_state_data[14] = to_uart(s_jb_state.stick_y >> 2);
+    s_jb_state_data[15] = to_uart(s_jb_state.stick_y >> 0);
     s_jb_state_data[16] = JBSTOP;
 }
 

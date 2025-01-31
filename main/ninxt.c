@@ -45,7 +45,7 @@ void app_main(void)
     xTaskCreate(task_rx, "task_rx", TASK_RX_STACKSIZE, NULL, TASK_RX_PRIORITY, &s_task_rx);
     xTaskCreate(task_tx, "task_tx", TASK_TX_STACKSIZE, NULL, TASK_TX_PRIORITY, &s_task_tx);
 
-    jb_uart_setup();
+    jb_uart_init();
     jb_update_state();
 
     int8_t x = 0;

@@ -20,7 +20,7 @@ typedef enum {
     JB_POS_CR = 0,
 } jb_btn_pos_t;
 
-void jb_uart_setup(void);
+void jb_uart_init(void);
 
 void jb_btn_press(jb_btn_pos_t pos);
 void jb_btn_release(jb_btn_pos_t pos);
