@@ -16,7 +16,7 @@
 static TaskHandle_t s_task_rx = NULL;
 static TaskHandle_t s_task_tx = NULL;
 
-void task_rx(void* arg)
+static void task_rx(void* arg)
 {
     printf("task_rx start\n");
 
@@ -27,7 +27,7 @@ void task_rx(void* arg)
     }
 }
 
-void task_tx(void* arg)
+static void task_tx(void* arg)
 {
     printf("task_tx start\n");
 

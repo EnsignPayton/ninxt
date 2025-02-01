@@ -47,12 +47,12 @@ typedef struct {
 } jb_state_t;
 
 // Source of truth for current controller state
-jb_state_t s_jb_state;
+static jb_state_t s_jb_state;
 
 #define JB_STATE_SIZE 17
-uint8_t s_jb_state_data[JB_STATE_SIZE];
+static uint8_t s_jb_state_data[JB_STATE_SIZE];
 
-uint8_t to_uart(uint8_t value)
+static uint8_t to_uart(uint8_t value)
 {
     switch (value & 0b11) {
         default:
