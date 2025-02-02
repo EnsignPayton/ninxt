@@ -78,9 +78,9 @@ void jb_uart_init(void)
         .source_clk = UART_SCLK_DEFAULT,
     };
 
-    uart_driver_install(JB_UART_PORT_NUM, 2048, 0, 0, NULL, 0);
     uart_param_config(JB_UART_PORT_NUM, &uart_config);
     uart_set_pin(JB_UART_PORT_NUM, JB_UART_TX, JB_UART_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    uart_driver_install(JB_UART_PORT_NUM, 2048, 0, 0, NULL, 0);
 }
 
 void jb_btn_press(jb_btn_pos_t pos)
@@ -105,37 +105,40 @@ void jb_set_y(int8_t val)
 
 void jb_update_state(void)
 {
+    uint16_t btn_flags = s_jb_state.btn_flags;
+    uint8_t stick_x = s_jb_state.stick_x;
+    uint8_t stick_y = s_jb_state.stick_y;
     s_jb_state_data[0] = to_uart(
-        ((s_jb_state.btn_flags >> (JB_POS_A - 1)) & 0b10) |
-        ((s_jb_state.btn_flags >> JB_POS_B) & 0b01));
+        ((btn_flags >> (JB_POS_A - 1)) & 0b10) |
+        ((btn_flags >> JB_POS_B) & 0b01));
     s_jb_state_data[1] = to_uart(
-        ((s_jb_state.btn_flags >> (JB_POS_Z - 1)) & 0b10) |
-        ((s_jb_state.btn_flags >> JB_POS_START) & 0b01));
+        ((btn_flags >> (JB_POS_Z - 1)) & 0b10) |
+        ((btn_flags >> JB_POS_START) & 0b01));
     s_jb_state_data[2] = to_uart(
-        ((s_jb_state.btn_flags >> (JB_POS_DU - 1)) & 0b10) |
-        ((s_jb_state.btn_flags >> JB_POS_DD) & 0b01));
+        ((btn_flags >> (JB_POS_DU - 1)) & 0b10) |
+        ((btn_flags >> JB_POS_DD) & 0b01));
     s_jb_state_data[3] = to_uart(
-        ((s_jb_state.btn_flags >> (JB_POS_DL - 1)) & 0b10) |
-        ((s_jb_state.btn_flags >> JB_POS_DR) & 0b01));
+        ((btn_flags >> (JB_POS_DL - 1)) & 0b10) |
+        ((btn_flags >> JB_POS_DR) & 0b01));
     s_jb_state_data[4] = to_uart(
-        ((s_jb_state.btn_flags >> (JB_POS_DU - 1)) & 0b10) |
-        ((s_jb_state.btn_flags >> JB_POS_DD) & 0b01));
+        ((btn_flags >> (JB_POS_DU - 1)) & 0b10) |
+        ((btn_flags >> JB_POS_DD) & 0b01));
     s_jb_state_data[5] = to_uart(
-        ((s_jb_state.btn_flags >> (JB_POS_RESET - 1)) & 0b10));
+        ((btn_flags >> (JB_POS_RESET - 1)) & 0b10));
     s_jb_state_data[6] = to_uart(
-        ((s_jb_state.btn_flags >> (JB_POS_CU - 1)) & 0b10) |
-        ((s_jb_state.btn_flags >> JB_POS_CD) & 0b01));
+        ((btn_flags >> (JB_POS_CU - 1)) & 0b10) |
+        ((btn_flags >> JB_POS_CD) & 0b01));
     s_jb_state_data[7] = to_uart(
-        ((s_jb_state.btn_flags >> (JB_POS_CL - 1)) & 0b10) |
-        ((s_jb_state.btn_flags >> JB_POS_CR) & 0b01));
-    s_jb_state_data[8] = to_uart(s_jb_state.stick_x >> 6);
-    s_jb_state_data[9] = to_uart(s_jb_state.stick_x >> 4);
-    s_jb_state_data[10] = to_uart(s_jb_state.stick_x >> 2);
-    s_jb_state_data[11] = to_uart(s_jb_state.stick_x >> 0);
-    s_jb_state_data[12] = to_uart(s_jb_state.stick_y >> 6);
-    s_jb_state_data[13] = to_uart(s_jb_state.stick_y >> 4);
-    s_jb_state_data[14] = to_uart(s_jb_state.stick_y >> 2);
-    s_jb_state_data[15] = to_uart(s_jb_state.stick_y >> 0);
+        ((btn_flags >> (JB_POS_CL - 1)) & 0b10) |
+        ((btn_flags >> JB_POS_CR) & 0b01));
+    s_jb_state_data[8] = to_uart(stick_x >> 6);
+    s_jb_state_data[9] = to_uart(stick_x >> 4);
+    s_jb_state_data[10] = to_uart(stick_x >> 2);
+    s_jb_state_data[11] = to_uart(stick_x >> 0);
+    s_jb_state_data[12] = to_uart(stick_y >> 6);
+    s_jb_state_data[13] = to_uart(stick_y >> 4);
+    s_jb_state_data[14] = to_uart(stick_y >> 2);
+    s_jb_state_data[15] = to_uart(stick_y >> 0);
     s_jb_state_data[16] = JBSTOP;
 }
 

@@ -45,6 +45,9 @@ void app_main(void)
     xTaskCreate(task_rx, "task_rx", TASK_RX_STACKSIZE, NULL, TASK_RX_PRIORITY, &s_task_rx);
     xTaskCreate(task_tx, "task_tx", TASK_TX_STACKSIZE, NULL, TASK_TX_PRIORITY, &s_task_tx);
 
+    printf("Initializing JB_UART, no more printf\n");
+    vTaskDelay(10);
+
     jb_uart_init();
     jb_update_state();
 
