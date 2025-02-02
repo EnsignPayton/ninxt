@@ -3,6 +3,10 @@
         "freertos.h": "c",
         "sdkconfig.h": "c",
         "uart.h": "c",
-        "ets_sys.h": "c"
+        "ets_sys.h": "c",
+        "nvs_flash.h": "c",
+        "esp_nimble_hci.h": "c",
+        "transport.h": "c",
+        "transport_impl.h": "c"
     }
 }
