@@ -8,13 +8,14 @@
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
 #include "jb_ble.h"
+#include "jb_uart.h"
 
 // From ble_store_config.c deep inside nimble source.
 // This was in the examples, so I guess I'll use it too.
 void ble_store_config_init(void);
 
 static void advertise(void);
-static ble_gatt_access_fn on_access_btn_flags;
+static ble_gatt_access_fn on_access_btn;
 
 #define JB_GAP_APPEARANCE 0x0000
 #define JB_GAP_ROLE 0x00
@@ -28,8 +29,8 @@ static uint8_t s_own_addr_type;
 static uint8_t s_addr_val[6] = {0};
 
 static const ble_uuid16_t s_audo_io_uuid = BLE_UUID16_INIT(0x1815);
-static uint16_t s_btn_flags_handle;
-static const ble_uuid128_t s_btn_flags_uuid = BLE_UUID128_INIT(
+static uint16_t s_btn_handle;
+static const ble_uuid128_t s_btn_uuid = BLE_UUID128_INIT(
     0x7b, 0x0e, 0x45, 0x59, 0x46, 0xa5, 0x41, 0xd2, 0xb5, 0x44, 0x2a, 0x71, 0x61, 0x2f, 0x00, 0x00
 );
 
@@ -39,10 +40,10 @@ static const struct ble_gatt_svc_def s_gatt_svcs[] = {
         .uuid = &s_audo_io_uuid.u,
         .characteristics = (struct ble_gatt_chr_def[]) {
             {
-                .uuid = &s_btn_flags_uuid.u,
-                .access_cb = on_access_btn_flags,
-                .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_READ,
-                .val_handle = &s_btn_flags_handle,
+                .uuid = &s_btn_uuid.u,
+                .access_cb = on_access_btn,
+                .flags = BLE_GATT_CHR_F_WRITE,
+                .val_handle = &s_btn_handle,
             },
             {0}
         }
@@ -225,42 +226,33 @@ static void on_gatts_register(struct ble_gatt_register_ctxt* ctxt, void* arg)
     }
 }
 
-static int on_access_btn_flags(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt* ctxt, void* arg)
+static int on_access_btn(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt* ctxt, void* arg)
 {
     switch (ctxt->op) {
-        case BLE_GATT_ACCESS_OP_READ_CHR:
-        {
-            if (conn_handle != BLE_HS_CONN_HANDLE_NONE) {
-                ESP_LOGI(TAG, "btn_flags read; conn_handle=%d attr_handle=%d", conn_handle, attr_handle);
-            } else {
-                ESP_LOGI(TAG, "btn_flags read by nimble stack; attr_handle=%d", attr_handle);
-            }
-
-            if (attr_handle == s_btn_flags_handle) {
-                uint16_t val = 0xbeef;
-                os_mbuf_append(ctxt->om, &val, sizeof(val));
-            }
-
-            break;
-        }
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
         {
             if (conn_handle != BLE_HS_CONN_HANDLE_NONE) {
-                ESP_LOGI(TAG, "btn_flags write; conn_handle=%d attr_handle=%d", conn_handle, attr_handle);
+                ESP_LOGI(TAG, "btn write; conn_handle=%d attr_handle=%d", conn_handle, attr_handle);
             } else {
-                ESP_LOGI(TAG, "btn_flags write by nimble stack; attr_handle=%d", attr_handle);
+                ESP_LOGI(TAG, "btn write by nimble stack; attr_handle=%d", attr_handle);
             }
 
-            if (attr_handle == s_btn_flags_handle && ctxt->om->om_len == sizeof(uint16_t)) {
-                uint16_t val = (ctxt->om->om_data[1] << 8) | ctxt->om->om_data[0];
-                ESP_LOGI(TAG, "btn_flags received %#06x", val);
+            if (attr_handle == s_btn_handle && ctxt->om->om_len == 2) {
+                jb_btn_pos_t pos = (jb_btn_pos_t)ctxt->om->om_data[0];
+                if (ctxt->om->om_data[1]) {
+                    jb_btn_press(pos);
+                } else {
+                    jb_btn_release(pos);
+                }
+
+                jb_update_state();
             }
 
             break;
         }
         default:
         {
-            ESP_LOGW(TAG, "btn_flags: unsupported access uperation %d", ctxt->op);
+            ESP_LOGW(TAG, "btn: unsupported access operation %d", ctxt->op);
             return BLE_ATT_ERR_UNLIKELY;
         }
     }

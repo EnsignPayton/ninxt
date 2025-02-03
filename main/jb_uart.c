@@ -1,5 +1,6 @@
 #include "jb_uart.h"
 #include "sdkconfig.h"
+#include "esp_log.h"
 #include "driver/uart.h"
 #include "soc/clk_tree_defs.h"
 
@@ -8,6 +9,8 @@
 // https://n64brew.dev/wiki/Joybus_Protocol
 // https://n64brew.dev/wiki/Controller
 // https://ctrlsrc.io/posts/2023/gpio-speed-esp32c3-esp32c6/
+
+static char* TAG = "NinXT";
 
 #define JB_UART_RX 44
 #define JB_UART_TX 43
@@ -85,21 +88,25 @@ void jb_uart_init(void)
 
 void jb_btn_press(jb_btn_pos_t pos)
 {
+    ESP_LOGI(TAG, "jb_btn_press %d", pos);
     s_jb_state.btn_flags |= (1 << pos);
 }
 
 void jb_btn_release(jb_btn_pos_t pos)
 {
+    ESP_LOGI(TAG, "jb_btn_release %d", pos);
     s_jb_state.btn_flags &= ~(1 << pos);
 }
 
 void jb_set_x(int8_t val)
 {
+    ESP_LOGI(TAG, "jb_set_x %d", val);
     s_jb_state.stick_x = val;
 }
 
 void jb_set_y(int8_t val)
 {
+    ESP_LOGI(TAG, "jb_set_y %d", val);
     s_jb_state.stick_y = val;
 }
 
