@@ -16,6 +16,7 @@ void ble_store_config_init(void);
 
 static void advertise(void);
 static ble_gatt_access_fn on_access_btn;
+static ble_gatt_access_fn on_access_axs;
 
 #define JB_GAP_APPEARANCE 0x0000
 #define JB_GAP_ROLE 0x00
@@ -33,6 +34,10 @@ static uint16_t s_btn_handle;
 static const ble_uuid128_t s_btn_uuid = BLE_UUID128_INIT(
     0x7b, 0x0e, 0x45, 0x59, 0x46, 0xa5, 0x41, 0xd2, 0xb5, 0x44, 0x2a, 0x71, 0x61, 0x2f, 0x00, 0x00
 );
+static uint16_t s_axs_handle;
+static const ble_uuid128_t s_axs_uuid = BLE_UUID128_INIT(
+    0x77, 0xa8, 0x89, 0xe2, 0x1e, 0x03, 0x46, 0x76, 0xa1, 0xa1, 0xca, 0x24, 0x11, 0xa3, 0x06, 0x4a
+);
 
 static const struct ble_gatt_svc_def s_gatt_svcs[] = {
     {
@@ -44,6 +49,12 @@ static const struct ble_gatt_svc_def s_gatt_svcs[] = {
                 .access_cb = on_access_btn,
                 .flags = BLE_GATT_CHR_F_WRITE,
                 .val_handle = &s_btn_handle,
+            },
+            {
+                .uuid = &s_axs_uuid.u,
+                .access_cb = on_access_axs,
+                .flags = BLE_GATT_CHR_F_WRITE,
+                .val_handle = &s_axs_handle,
             },
             {0}
         }
@@ -84,8 +95,6 @@ static void on_reset(int reason)
 
 static void on_sync(void)
 {
-    ESP_LOGI(TAG, "Nimble sync");
-
     int rc = 0;
     char addr_str[18] = {0};
 
@@ -212,15 +221,15 @@ static void on_gatts_register(struct ble_gatt_register_ctxt* ctxt, void* arg)
 
     switch (ctxt->op) {
         case BLE_GATT_REGISTER_OP_SVC:
-            ESP_LOGI(TAG, "GATT Register: service = %s, handle = %d",
+            ESP_LOGD(TAG, "GATT Register: service = %s, handle = %d",
                 ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf), ctxt->svc.handle);
             break;
         case BLE_GATT_REGISTER_OP_CHR:
-            ESP_LOGI(TAG, "GATT Register: characteristic = %s, def_handle = %d, val_handle = %d",
+            ESP_LOGD(TAG, "GATT Register: characteristic = %s, def_handle = %d, val_handle = %d",
                 ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf), ctxt->chr.def_handle, ctxt->chr.val_handle);
             break;
         case BLE_GATT_REGISTER_OP_DSC:
-            ESP_LOGI(TAG, "GATT Register: descriptor = %s, handle = %d",
+            ESP_LOGD(TAG, "GATT Register: descriptor = %s, handle = %d",
                 ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf), ctxt->dsc.handle);
             break;
     }
@@ -231,12 +240,6 @@ static int on_access_btn(uint16_t conn_handle, uint16_t attr_handle, struct ble_
     switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
         {
-            if (conn_handle != BLE_HS_CONN_HANDLE_NONE) {
-                ESP_LOGI(TAG, "btn write; conn_handle=%d attr_handle=%d", conn_handle, attr_handle);
-            } else {
-                ESP_LOGI(TAG, "btn write by nimble stack; attr_handle=%d", attr_handle);
-            }
-
             if (attr_handle == s_btn_handle && ctxt->om->om_len == 2) {
                 jb_btn_pos_t pos = (jb_btn_pos_t)ctxt->om->om_data[0];
                 if (ctxt->om->om_data[1]) {
@@ -250,10 +253,28 @@ static int on_access_btn(uint16_t conn_handle, uint16_t attr_handle, struct ble_
 
             break;
         }
-        default:
+    }
+
+    return 0;
+}
+
+static int on_access_axs(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt* ctxt, void* arg)
+{
+    switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
         {
-            ESP_LOGW(TAG, "btn: unsupported access operation %d", ctxt->op);
-            return BLE_ATT_ERR_UNLIKELY;
+            if (attr_handle == s_axs_handle && ctxt->om->om_len == 2) {
+                int8_t val = (int8_t)ctxt->om->om_data[0];
+                if (ctxt->om->om_data[1]) {
+                    jb_set_y(val);
+                } else {
+                    jb_set_x(val);
+                }
+
+                jb_update_state();
+            }
+
+            break;
         }
     }
 
@@ -319,8 +340,6 @@ static void advertise(void)
         ESP_LOGE(TAG, "failed to start advertising, error code: %d", rc);
         return;
     }
-
-    ESP_LOGI(TAG, "Advertising started");
 }
 
 static void task_nimble_host(void* arg)
