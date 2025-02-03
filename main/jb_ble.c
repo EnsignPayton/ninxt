@@ -42,7 +42,7 @@ static const struct ble_gatt_svc_def s_gatt_svcs[] = {
                 .uuid = &s_btn_flags_uuid.u,
                 .access_cb = on_access_btn_flags,
                 .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_READ,
-                .val_handle = &s_btn_flags_handle
+                .val_handle = &s_btn_flags_handle,
             },
             {0}
         }
@@ -160,9 +160,27 @@ static int on_gap_event(struct ble_gap_event* event, void* arg)
             print_conn_desc(&desc);
             break;
         }
+        case BLE_GAP_EVENT_ADV_COMPLETE:
+        {
+            ESP_LOGI(TAG, "GAP Event: advertise complete; reason=%d", event->adv_complete.reason);
+            advertise();
+            break;
+        }
+        case BLE_GAP_EVENT_NOTIFY_TX:
+        {
+            if ((event->notify_tx.status != 0) && (event->notify_tx.status != BLE_HS_EDONE)) {
+                ESP_LOGI(TAG,
+                    "GAP Event: notify event; conn_handle=%d attr_handle=%d "
+                    "status=%d is_indication=%d",
+                    event->notify_tx.conn_handle, event->notify_tx.attr_handle,
+                    event->notify_tx.status, event->notify_tx.indication);
+            }
+
+            break;
+        }
         case BLE_GAP_EVENT_MTU:
         {
-            ESP_LOGI(TAG, "GAP Event: mtu update ; conn_handle=%d cid=%d mtu=%d",
+            ESP_LOGI(TAG, "GAP Event: mtu update; conn_handle=%d cid=%d mtu=%d",
                 event->mtu.conn_handle, event->mtu.channel_id, event->mtu.value);
             break;
         }
@@ -189,12 +207,64 @@ static int on_gap_event(struct ble_gap_event* event, void* arg)
 
 static void on_gatts_register(struct ble_gatt_register_ctxt* ctxt, void* arg)
 {
-    ESP_LOGI(TAG, "GATT Register");
+    char buf[BLE_UUID_STR_LEN];
+
+    switch (ctxt->op) {
+        case BLE_GATT_REGISTER_OP_SVC:
+            ESP_LOGI(TAG, "GATT Register: service = %s, handle = %d",
+                ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf), ctxt->svc.handle);
+            break;
+        case BLE_GATT_REGISTER_OP_CHR:
+            ESP_LOGI(TAG, "GATT Register: characteristic = %s, def_handle = %d, val_handle = %d",
+                ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf), ctxt->chr.def_handle, ctxt->chr.val_handle);
+            break;
+        case BLE_GATT_REGISTER_OP_DSC:
+            ESP_LOGI(TAG, "GATT Register: descriptor = %s, handle = %d",
+                ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf), ctxt->dsc.handle);
+            break;
+    }
 }
 
 static int on_access_btn_flags(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt* ctxt, void* arg)
 {
-    ESP_LOGI(TAG, "GATT Access: btn_flags");
+    switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR:
+        {
+            if (conn_handle != BLE_HS_CONN_HANDLE_NONE) {
+                ESP_LOGI(TAG, "btn_flags read; conn_handle=%d attr_handle=%d", conn_handle, attr_handle);
+            } else {
+                ESP_LOGI(TAG, "btn_flags read by nimble stack; attr_handle=%d", attr_handle);
+            }
+
+            if (attr_handle == s_btn_flags_handle) {
+                uint16_t val = 0xbeef;
+                os_mbuf_append(ctxt->om, &val, sizeof(val));
+            }
+
+            break;
+        }
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+        {
+            if (conn_handle != BLE_HS_CONN_HANDLE_NONE) {
+                ESP_LOGI(TAG, "btn_flags write; conn_handle=%d attr_handle=%d", conn_handle, attr_handle);
+            } else {
+                ESP_LOGI(TAG, "btn_flags write by nimble stack; attr_handle=%d", attr_handle);
+            }
+
+            if (attr_handle == s_btn_flags_handle && ctxt->om->om_len == sizeof(uint16_t)) {
+                uint16_t val = (ctxt->om->om_data[1] << 8) | ctxt->om->om_data[0];
+                ESP_LOGI(TAG, "btn_flags received %#06x", val);
+            }
+
+            break;
+        }
+        default:
+        {
+            ESP_LOGW(TAG, "btn_flags: unsupported access uperation %d", ctxt->op);
+            return BLE_ATT_ERR_UNLIKELY;
+        }
+    }
+
     return 0;
 }
 
