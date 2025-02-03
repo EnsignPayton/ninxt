@@ -6,6 +6,7 @@
 #include "nimble/nimble_port_freertos.h"
 #include "nvs_flash.h"
 #include "services/gap/ble_svc_gap.h"
+#include "services/gatt/ble_svc_gatt.h"
 #include "jb_ble.h"
 
 // From ble_store_config.c deep inside nimble source.
@@ -13,6 +14,7 @@
 void ble_store_config_init(void);
 
 static void advertise(void);
+static ble_gatt_access_fn on_access_btn_flags;
 
 #define JB_GAP_APPEARANCE 0x0000
 #define JB_GAP_ROLE 0x00
@@ -21,13 +23,57 @@ static char* TAG = "NinXT";
 static char* DEVICE_NAME = "NinXT";
 
 // our address type
-static uint8_t own_addr_type;
+static uint8_t s_own_addr_type;
 // our address value
-static uint8_t addr_val[6] = {0};
+static uint8_t s_addr_val[6] = {0};
 
-inline static void format_addr(char *addr_str, uint8_t addr[]) {
+static const ble_uuid16_t s_audo_io_uuid = BLE_UUID16_INIT(0x1815);
+static uint16_t s_btn_flags_handle;
+static const ble_uuid128_t s_btn_flags_uuid = BLE_UUID128_INIT(
+    0x7b, 0x0e, 0x45, 0x59, 0x46, 0xa5, 0x41, 0xd2, 0xb5, 0x44, 0x2a, 0x71, 0x61, 0x2f, 0x00, 0x00
+);
+
+static const struct ble_gatt_svc_def s_gatt_svcs[] = {
+    {
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = &s_audo_io_uuid.u,
+        .characteristics = (struct ble_gatt_chr_def[]) {
+            {
+                .uuid = &s_btn_flags_uuid.u,
+                .access_cb = on_access_btn_flags,
+                .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_READ,
+                .val_handle = &s_btn_flags_handle
+            },
+            {0}
+        }
+    },
+    {0}
+};
+
+inline static void format_addr(char* addr_str, uint8_t addr[])
+{
     sprintf(addr_str, "%02X:%02X:%02X:%02X:%02X:%02X", addr[0], addr[1],
             addr[2], addr[3], addr[4], addr[5]);
+}
+
+static void print_conn_desc(struct ble_gap_conn_desc* desc)
+{
+    char addr_str[18] = {0};
+
+    ESP_LOGI(TAG, "connection handle: %d", desc->conn_handle);
+
+    format_addr(addr_str, desc->our_id_addr.val);
+    ESP_LOGI(TAG, "device id address: type=%d, value=%s", desc->our_id_addr.type, addr_str);
+
+    format_addr(addr_str, desc->peer_id_addr.val);
+    ESP_LOGI(TAG, "peer id address: type=%d, value=%s", desc->peer_id_addr.type, addr_str);
+
+    ESP_LOGI(TAG,
+        "conn_itvl=%d, conn_latency=%d, supervision_timeout=%d, "
+        "encrypted=%d, authenticated=%d, bonded=%d\n",
+        desc->conn_itvl, desc->conn_latency, desc->supervision_timeout,
+        desc->sec_state.encrypted, desc->sec_state.authenticated,
+        desc->sec_state.bonded);
 }
 
 static void on_reset(int reason)
@@ -50,23 +96,106 @@ static void on_sync(void)
     }
 
     // Save address type for use in advertising
-    rc = ble_hs_id_infer_auto(0, &own_addr_type);
+    rc = ble_hs_id_infer_auto(0, &s_own_addr_type);
     if (rc != 0) {
         ESP_LOGE(TAG, "failed to infer address type, error code: %d", rc);
         return;
     }
 
     // Save address for use in advertising
-    rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
+    rc = ble_hs_id_copy_addr(s_own_addr_type, s_addr_val, NULL);
     if (rc != 0) {
         ESP_LOGE(TAG, "failed to copy device address, error code: %d", rc);
         return;
     }
 
-    format_addr(addr_str, addr_val);
+    format_addr(addr_str, s_addr_val);
     ESP_LOGI(TAG, "device address: %s", addr_str);
 
     advertise();
+}
+
+static int on_gap_event(struct ble_gap_event* event, void* arg)
+{
+    int rc = 0;
+    struct ble_gap_conn_desc desc;
+
+    switch (event->type) {
+        case BLE_GAP_EVENT_CONNECT:
+        {
+            ESP_LOGI(TAG, "GAP Event: connection %s; status=%d",
+                    event->connect.status == 0 ? "established" : "failed",
+                    event->connect.status);
+
+            if (event->connect.status == 0) {
+                rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
+                if (rc != 0) {
+                    ESP_LOGE(TAG, "failed to find connection by handle, error code: %d", rc);
+                    return rc;
+                }
+
+                print_conn_desc(&desc);
+            } else {
+                advertise();
+            }
+
+            break;
+        }
+        case BLE_GAP_EVENT_DISCONNECT:
+        {
+            ESP_LOGI(TAG, "GAP Event: disconnected from peer; reason=%d", event->disconnect.reason);
+            advertise();
+            break;
+        }
+        case BLE_GAP_EVENT_CONN_UPDATE:
+        {
+            ESP_LOGI(TAG, "GAP Event: connection updated; status=%d", event->conn_update.status);
+
+            rc = ble_gap_conn_find(event->conn_update.conn_handle, &desc);
+            if (rc != 0) {
+                ESP_LOGE(TAG, "failed to find connection by handle, error code: %d", rc);
+                return rc;
+            }
+
+            print_conn_desc(&desc);
+            break;
+        }
+        case BLE_GAP_EVENT_MTU:
+        {
+            ESP_LOGI(TAG, "GAP Event: mtu update ; conn_handle=%d cid=%d mtu=%d",
+                event->mtu.conn_handle, event->mtu.channel_id, event->mtu.value);
+            break;
+        }
+        case BLE_GAP_EVENT_DATA_LEN_CHG:
+        {
+            ESP_LOGI(TAG, "GAP Event: Data langth change");
+            break;
+        }
+        case BLE_GAP_EVENT_LINK_ESTAB:
+        {
+            ESP_LOGI(TAG, "GAP Event: Link %s",
+                event->link_estab.status == 0 ? "established" : "failed");
+            break;
+        }
+        default:
+        {
+            ESP_LOGI(TAG, "GAP Event: Unsupported type %d", event->type);
+            break;
+        }
+    }
+
+    return rc;
+}
+
+static void on_gatts_register(struct ble_gatt_register_ctxt* ctxt, void* arg)
+{
+    ESP_LOGI(TAG, "GATT Register");
+}
+
+static int on_access_btn_flags(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt* ctxt, void* arg)
+{
+    ESP_LOGI(TAG, "GATT Access: btn_flags");
+    return 0;
 }
 
 // TODO: This will be called from GATT event loop as well
@@ -76,8 +205,7 @@ static void advertise(void)
 
     struct ble_hs_adv_fields adv_fields = {0};
 
-    // Set advertisimg flags
-    // TODO: What do these mean? Documentation is shit
+    // Set advertisimg flags to generally discoverable and BR/EDR unsupported
     adv_fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
 
     // Set device name
@@ -107,8 +235,8 @@ static void advertise(void)
 
     // Set device address
     struct ble_hs_adv_fields rsp_fields = {0};
-    rsp_fields.device_addr = addr_val;
-    rsp_fields.device_addr_type = own_addr_type;
+    rsp_fields.device_addr = s_addr_val;
+    rsp_fields.device_addr_type = s_own_addr_type;
     rsp_fields.device_addr_is_present = true;
 
     // Apply
@@ -120,11 +248,11 @@ static void advertise(void)
 
     // Non-connectable and general discoverable
     struct ble_gap_adv_params adv_params = {0};
-    adv_params.conn_mode = BLE_GAP_CONN_MODE_NON;
+    adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
 
     // Actually start advertising now
-    rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER, &adv_params, NULL, NULL);
+    rc = ble_gap_adv_start(s_own_addr_type, NULL, BLE_HS_FOREVER, &adv_params, on_gap_event, NULL);
     if (rc != 0) {
         ESP_LOGE(TAG, "failed to start advertising, error code: %d", rc);
         return;
@@ -186,8 +314,24 @@ void jb_ble_init(void)
         return;
     }
 
+    // Init nimble GATT
+    ble_svc_gatt_init();
+
+    rc = ble_gatts_count_cfg(s_gatt_svcs);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "failed to set gatt service count, error code: %d", rc);
+        return;
+    }
+
+    rc = ble_gatts_add_svcs(s_gatt_svcs);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "failed to register gatt service definitions, error code: %d", rc);
+        return;
+    }
+
     ble_hs_cfg.reset_cb = on_reset;
     ble_hs_cfg.sync_cb = on_sync;
+    ble_hs_cfg.gatts_register_cb = on_gatts_register;
     ble_hs_cfg.store_status_cb = ble_store_util_status_rr;
     ble_store_config_init();
 
