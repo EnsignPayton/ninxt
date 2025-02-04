@@ -1,76 +1,23 @@
-#include <stdio.h>
-#include <inttypes.h>
-#include "sdkconfig.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "jb_ble.h"
-#include "jb_uart.h"
+#include "ble.h"
+#include "uart.h"
+#include "esp_log.h"
 
-// See https://www.freertos.org/Why-FreeRTOS/FAQs/Memory-usage-boot-times-context#how-big-should-the-stack-be
-#define TASK_RX_STACKSIZE 4096
-#define TASK_TX_STACKSIZE 4096
+// N64 UART conflicts with console logging over UART, so allow easily disabling it
+#define ENABLE_UART 0
 
-// See https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/01-Tasks-and-co-routines/03-Task-priorities
-#define TASK_RX_PRIORITY 9
-#define TASK_TX_PRIORITY 8
+const char* TAG = "NinXT";
 
-static TaskHandle_t s_task_rx = NULL;
-static TaskHandle_t s_task_tx = NULL;
-
-static void task_rx(void* arg)
+static void on_controller_state(const n64_controller_state_t* state)
 {
-    for (;;) {
-        if (ulTaskNotifyTake(pdTRUE, portMAX_DELAY)) {
-            printf("RX\n");
-        }
-    }
-}
-
-static void task_tx(void* arg)
-{
-    for (;;) {
-        if (ulTaskNotifyTake(pdTRUE, portMAX_DELAY)) {
-            // jb_send_info();
-            jb_send_state();
-        }
-    }
+    ESP_LOGI(TAG, "received controller state");
 }
 
 void app_main(void)
 {
-    printf("app_main start\n");
-    xTaskCreate(task_rx, "task_rx", TASK_RX_STACKSIZE, NULL, TASK_RX_PRIORITY, &s_task_rx);
-    xTaskCreate(task_tx, "task_tx", TASK_TX_STACKSIZE, NULL, TASK_TX_PRIORITY, &s_task_tx);
+    n64_ble_register_state_cb(&on_controller_state);
+    n64_ble_init();
 
-    jb_ble_init();
-
-/*
-    printf("Initializing JB_UART, no more printf\n");
-    vTaskDelay(10);
-
-    jb_uart_init();
-    jb_update_state();
-
-    int8_t x = 0;
-    int8_t y = 0;
-*/
-    for (;;) {
-/*
-        jb_btn_press(JB_POS_Z);
-        jb_set_x(++x);
-
-        jb_update_state();
-        xTaskNotifyGive(s_task_tx);
-        vTaskDelay(10);
-
-        jb_btn_release(JB_POS_Z);
-        jb_set_y(--y);
-
-        jb_update_state();
-        xTaskNotifyGive(s_task_tx);
-        vTaskDelay(10);
-*/
-
-        vTaskDelay(1000);
-    }
+#if ENABLE_UART
+    n64_uart_init();
+#endif
 }
