@@ -9,6 +9,7 @@
         "transport.h": "c",
         "transport_impl.h": "c",
         "ble.h": "c",
-        "common.h": "c"
+        "common.h": "c",
+        "clk_tree_defs.h": "c"
     }
 }

@@ -1,4 +1,5 @@
 #include "uart.h"
+#include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -7,11 +8,11 @@
 
 static char* TAG = "NinXT_UART";
 
-#define JB_UART_RX 44
 #define JB_UART_TX 43
+#define JB_UART_RX 44
 #define JB_UART_PORT_NUM UART_NUM_1
 #define JB_UART_BAUD_RATE 1000000
-#define RX_BUF_SIZE 1024
+#define RX_BUF_SIZE 64
 
 // UART sees 10 bits (start + byte + stop) for evert 2 bits of JB data
 // UART is LSB, JB is MSB
@@ -73,24 +74,6 @@ static void fill_state_arr()
         s_state_arr[12 + i] = to_uart(s_state.y_axis >> (2 * (3 - i)));
     }
 
-/*
-    s_state_arr[0] =  to_uart(s_state.buttons >> 14);
-    s_state_arr[1] =  to_uart(s_state.buttons >> 12);
-    s_state_arr[2] =  to_uart(s_state.buttons >> 10);
-    s_state_arr[3] =  to_uart(s_state.buttons >>  8);
-    s_state_arr[4] =  to_uart(s_state.buttons >>  6);
-    s_state_arr[5] =  to_uart(s_state.buttons >>  4);
-    s_state_arr[6] =  to_uart(s_state.buttons >>  2);
-    s_state_arr[7] =  to_uart(s_state.buttons >>  0);
-    s_state_arr[8] =  to_uart(s_state.x_axis >> 6);
-    s_state_arr[9] =  to_uart(s_state.x_axis >> 4);
-    s_state_arr[10] = to_uart(s_state.x_axis >> 2);
-    s_state_arr[11] = to_uart(s_state.x_axis >> 0);
-    s_state_arr[12] = to_uart(s_state.y_axis >> 6);
-    s_state_arr[13] = to_uart(s_state.y_axis >> 4);
-    s_state_arr[14] = to_uart(s_state.y_axis >> 2);
-    s_state_arr[15] = to_uart(s_state.y_axis >> 0);
-*/
     s_state_arr[16] = JBSTOP;
 }
 
@@ -98,12 +81,10 @@ static void uart_task(void* arg)
 {
     uint8_t* data = (uint8_t*)malloc(RX_BUF_SIZE + 1);
     for (;;) {
-        const int bytes_read = uart_read_bytes(JB_UART_PORT_NUM, data, RX_BUF_SIZE, portMAX_DELAY);
+        const int bytes_read = uart_read_bytes(JB_UART_PORT_NUM, data, RX_BUF_SIZE, 0);
         if (bytes_read > 0) {
-            // TODO: Parse when we got
-            // TODO: Respond appropriately
-
-            // if ()
+            // Echo
+            uart_write_bytes(JB_UART_PORT_NUM, (const char*)data, bytes_read);
         }
     }
 
@@ -112,6 +93,8 @@ static void uart_task(void* arg)
 
 int n64_uart_init(void)
 {
+    gpio_set_pull_mode(JB_UART_RX, GPIO_FLOATING);
+
     esp_err_t ret;
     uart_config_t uart_config = {
         .baud_rate = JB_UART_BAUD_RATE,

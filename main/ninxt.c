@@ -2,9 +2,11 @@
 #include "ble.h"
 #include "uart.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 // N64 UART conflicts with console logging over UART, so allow easily disabling it
-#define ENABLE_UART 0
+#define ENABLE_UART 1
 
 const char* TAG = "NinXT";
 
@@ -65,6 +67,10 @@ void app_main(void)
     n64_ble_init();
 
 #if ENABLE_UART
+    ESP_LOGI(TAG, "Initializing UART - logging will break now!");
+    vTaskDelay(10);
     n64_uart_init();
+#else
+    ESP_LOGI(TAG, "UART Disabled");
 #endif
 }
