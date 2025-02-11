@@ -123,7 +123,7 @@ int n64_uart_init(void)
         return 1;
     }
 
-    xTaskCreate(&uart_task, "uart_task", configMINIMAL_STACK_SIZE, NULL, 5, NULL);
+    xTaskCreate(&uart_task, "uart_task", configMINIMAL_STACK_SIZE, NULL, 12, NULL);
 
     return 0;
 }
