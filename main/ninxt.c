@@ -5,7 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define ENABLE_BLE  0
+#define ENABLE_BLE  1
 #define ENABLE_UART 1
 
 const char* TAG = "NinXT";
@@ -15,7 +15,7 @@ static void on_controller_state(const n64_controller_state_t* state)
 {
     ESP_LOGI(TAG, "received controller state %#06x %d %d", state->buttons, state->x_axis, state->y_axis);
 
-    // TODO: Inform UART
+    n64_uart_set_state(state);
 }
 #endif
 
