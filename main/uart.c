@@ -12,7 +12,7 @@ static char* TAG = "NinXT_UART";
 #define JB_UART_RX 44
 #define JB_UART_PORT_NUM UART_NUM_1
 #define JB_UART_BAUD_RATE 1000000
-#define RX_BUF_SIZE 64
+#define RX_BUF_SIZE 128
 
 // UART sees 10 bits (start + byte + stop) for evert 2 bits of JB data
 // UART is LSB, JB is MSB
@@ -79,7 +79,7 @@ static void fill_state_arr()
 
 static void uart_task(void* arg)
 {
-    uint8_t* data = (uint8_t*)malloc(RX_BUF_SIZE + 1);
+    uint8_t data[RX_BUF_SIZE];
     for (;;) {
         const int bytes_read = uart_read_bytes(JB_UART_PORT_NUM, data, RX_BUF_SIZE, 0);
         if (bytes_read > 0) {
@@ -87,8 +87,6 @@ static void uart_task(void* arg)
             uart_write_bytes(JB_UART_PORT_NUM, (const char*)data, bytes_read);
         }
     }
-
-    free(data);
 }
 
 int n64_uart_init(void)
@@ -123,7 +121,7 @@ int n64_uart_init(void)
         return 1;
     }
 
-    xTaskCreate(&uart_task, "uart_task", configMINIMAL_STACK_SIZE, NULL, 12, NULL);
+    xTaskCreate(&uart_task, "uart_task", configMINIMAL_STACK_SIZE + (RX_BUF_SIZE * 2), NULL, 12, NULL);
 
     return 0;
 }
