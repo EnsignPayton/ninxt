@@ -42,6 +42,8 @@ static uint8_t s_state_arr[JB_STATE_SIZE];
 
 static n64_controller_state_t s_state;
 
+static QueueHandle_t s_queue;
+
 static uint8_t to_uart(uint8_t value)
 {
     switch (value & 0b11) {
@@ -76,12 +78,17 @@ static void fill_state_arr()
 
 static void uart_task(void* arg)
 {
+    uart_event_t event;
     uint8_t data[RX_BUF_SIZE];
+
     for (;;) {
-        const int bytes_read = uart_read_bytes(JB_UART_PORT_NUM, data, RX_BUF_SIZE, 0);
-        if (bytes_read > 0) {
-            // Echo
-            uart_write_bytes(JB_UART_PORT_NUM, (const char*)data, bytes_read);
+        if (xQueueReceive(s_queue, &event, portMAX_DELAY)) {
+            if (event.type == UART_DATA) {
+                const int bytes_read = uart_read_bytes(JB_UART_PORT_NUM, data, RX_BUF_SIZE, 0);
+                if (bytes_read > 0) {
+                    uart_write_bytes(JB_UART_PORT_NUM, (const char*)s_state_arr, JB_STATE_SIZE);
+                }
+            }
         }
     }
 }
@@ -89,6 +96,8 @@ static void uart_task(void* arg)
 int n64_uart_init(void)
 {
     esp_err_t ret;
+
+    fill_state_arr();
 
     ret = gpio_set_pull_mode(JB_UART_RX, GPIO_FLOATING);
     ESP_ERROR_CHECK(ret);
@@ -108,10 +117,10 @@ int n64_uart_init(void)
     ret = uart_set_pin(JB_UART_PORT_NUM, JB_UART_TX, JB_UART_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     ESP_ERROR_CHECK(ret);
 
-    ret = uart_driver_install(JB_UART_PORT_NUM, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+    ret = uart_driver_install(JB_UART_PORT_NUM, RX_BUF_SIZE * 2, 0, 16, &s_queue, 0);
     ESP_ERROR_CHECK(ret);
 
-    xTaskCreate(&uart_task, "uart_task", configMINIMAL_STACK_SIZE + (RX_BUF_SIZE * 2), NULL, 12, NULL);
+    xTaskCreate(&uart_task, "uart_task", configMINIMAL_STACK_SIZE + (RX_BUF_SIZE * 2), NULL, 16, NULL);
 
     return 0;
 }
