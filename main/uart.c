@@ -1,12 +1,9 @@
 #include "uart.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-
-static char* TAG = "NinXT_UART";
 
 #define JB_UART_TX 43
 #define JB_UART_RX 44
@@ -91,9 +88,11 @@ static void uart_task(void* arg)
 
 int n64_uart_init(void)
 {
-    gpio_set_pull_mode(JB_UART_RX, GPIO_FLOATING);
-
     esp_err_t ret;
+
+    ret = gpio_set_pull_mode(JB_UART_RX, GPIO_FLOATING);
+    ESP_ERROR_CHECK(ret);
+
     uart_config_t uart_config = {
         .baud_rate = JB_UART_BAUD_RATE,
         .data_bits = UART_DATA_8_BITS,
@@ -104,22 +103,13 @@ int n64_uart_init(void)
     };
 
     ret = uart_param_config(JB_UART_PORT_NUM, &uart_config);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to configure uart");
-        return 1;
-    }
+    ESP_ERROR_CHECK(ret);
 
     ret = uart_set_pin(JB_UART_PORT_NUM, JB_UART_TX, JB_UART_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to set uart pins");
-        return 1;
-    }
+    ESP_ERROR_CHECK(ret);
 
     ret = uart_driver_install(JB_UART_PORT_NUM, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to install uart driver");
-        return 1;
-    }
+    ESP_ERROR_CHECK(ret);
 
     xTaskCreate(&uart_task, "uart_task", configMINIMAL_STACK_SIZE + (RX_BUF_SIZE * 2), NULL, 12, NULL);
 
